@@ -2,8 +2,8 @@
 
 
 void print_image_header(image_header* hdr) {
-	printf("Image Header:: type=%c, rows=%d,cols=%d, pgmraw=%d\n", 
-		hdr->type, hdr->rows, hdr->cols, hdr->pgmraw);
+	printf("Image Header:: type=%c, rows=%d, cols=%d, maxval=%d, pgmraw=%d\n", 
+		hdr->type, hdr->rows, hdr->cols, hdr->maxval, hdr->pgmraw);
 }
 
 

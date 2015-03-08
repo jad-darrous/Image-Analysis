@@ -161,12 +161,80 @@ void Filtering()
 
 void Histograms()
 {
+	// const int MAX_GRAY = 255;
 
+	printf("Read the image\n");
+	gs_image* img = read_image("grenoble_noise.pgm");
+	print_image_header(img->hdr);
+
+	int rows = img->hdr->rows, cols = img->hdr->cols;
+
+	int* hist_val = malloc(256 * sizeof(int));
+	int* hist_acc = malloc(256 * sizeof(int));
+
+	gray* hist_str = malloc(cols * rows * sizeof(gray));
+	gray* hist_eq = malloc(cols * rows * sizeof(gray));	
+	
+	int val,i,j;
+
+	for(i=0; i<256; i++)
+		hist_val[i] = 0;
+
+	for (i=0; i<rows; i++){
+		for (j=0; j<cols; j++){
+			val = img->data[i*cols+j];
+			hist_val[val]++; 
+		}
+	}
+
+	hist_acc[0] = hist_val[0];
+	for(i=1; i<256; i++){
+		hist_acc[i] = hist_val[i] + hist_acc[i-1];
+	}
+
+	int min=255, max=0;
+	for (i=0;i<256;i++)
+		if (hist_val[i]) {
+			min = i;
+			break;
+		}
+	for (i=255;i>=0;i--)
+		if (hist_val[i]) {
+			max = i;
+			break;
+		}
+	
+	printf("(min, max) = (%d, %d)\n", min, max);
+
+	for (i=0; i<rows; i++) {
+		for (j=0; j<cols; j++) {
+			hist_str[i*cols+j] = (gray)(255 * ((int)img->data[i*cols+j] - min) / (max-min));
+		}
+	}
+
+	for (i=0; i<rows; i++) {
+		for (j=0; j<cols; j++) {
+			val = img->data[i*cols+j];
+			hist_eq[i*cols+j] = (hist_acc[val]/(float)(cols*rows)) * 255;
+		}
+	}
+
+	gs_image* img_str = malloc(sizeof(gs_image));
+	img_str->hdr = img->hdr;
+	img_str->data = hist_str;
+	printf("Write new image after str\n");
+	write_image("grenoble-str.pgm", img_str);
+
+	gs_image* img_eq = malloc(sizeof(gs_image));
+	img_eq->hdr = img->hdr;
+	img_eq->data = hist_eq;
+	printf("Write new image after eq\n");
+	write_image("grenoble-eq.pgm", img_eq);
 }
 
 int main()
 {
-	Filtering();
+	// Filtering();
 	Histograms();
 	return 0;
 }
