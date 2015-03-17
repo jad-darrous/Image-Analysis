@@ -164,7 +164,7 @@ void Histograms()
 	// const int MAX_GRAY = 255;
 
 	printf("Read the image\n");
-	gs_image* img = read_image("grenoble_noise.pgm");
+	gs_image* img = read_image("grenoble.pgm");
 	print_image_header(img->hdr);
 
 	int rows = img->hdr->rows, cols = img->hdr->cols;
@@ -204,7 +204,7 @@ void Histograms()
 			break;
 		}
 	
-	printf("(min, max) = (%d, %d)\n", min, max);
+	printf("Histogram (min, max) = (%d, %d)\n", min, max);
 
 	for (i=0; i<rows; i++) {
 		for (j=0; j<cols; j++) {
@@ -234,7 +234,7 @@ void Histograms()
 
 int main()
 {
-	// Filtering();
+	Filtering();
 	Histograms();
 	return 0;
 }
