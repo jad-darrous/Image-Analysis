@@ -299,7 +299,6 @@ int writePixmap(int * pixmap,
       break;
       
     case 5:
-    printf("-----\n");
       fprintf(filePtr, "P5\n");
       fprintf(filePtr, "%d %d \n", cols, rows);
       fprintf(filePtr, "%u\n", (unsigned char) pm_getMax(pixmap, cols * rows));
