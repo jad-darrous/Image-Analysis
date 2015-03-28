@@ -254,6 +254,9 @@ int main()
 	int *Ix = Convolute_n(flt_img, dimx, dimy, sobel_h1, 3, 1);
 	int *Iy = Convolute_n(flt_img, dimx, dimy, sobel_h2, 3, 1);
 
+	normalize_and_print(int_to_double(Ix, dimx * dimy), dimx, dimy, type, "boat-grad-Ix.pgm");
+	normalize_and_print(int_to_double(Iy, dimx * dimy), dimx, dimy, type, "boat-grad-Iy.pgm");
+
 	double* m = gradient_magnitude(Ix, Iy, dimx, dimy);
 
 	normalize_and_print(m, dimx, dimy, type, "boat-grad-mag.pgm");
