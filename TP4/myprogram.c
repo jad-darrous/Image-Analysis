@@ -20,6 +20,12 @@ double G55[25] = {
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
+const int nTopCorner = 100;
+
+typedef struct _pixel {
+	int i, j;
+	double val;
+} pixel;
 
 int* double_to_int(double *arr, int size) {
 
@@ -116,25 +122,7 @@ void compute_Ix2_Iy2_IxIy(double* Ix, double* Iy, int cols, int rows,
 		(*Ix2)[i] = Ix[i] * Ix[i];
 		(*Iy2)[i] = Iy[i] * Iy[i];
 		(*IxIy)[i] = Ix[i] * Iy[i];
-		// printf("%d\n", i);
 	}
-}
-
-
-/*
- * http://en.wikipedia.org/wiki/Corner_detection#The_Harris_.26_Stephens_.2F_Plessey_.2F_Shi.E2.80.93Tomasi_corner_detection_algorithm
- */
-double* harris(int cols, int rows, double* A, double* B, double* C, double a) {
-	int size = cols * rows;
-	double* img = (double *) malloc(size * sizeof(double));
-	int i;
-	for (i=0; i < size; i++) {
-		double detM = A[i]*B[i] - C[i]*C[i];
-		double traceM = A[i]+B[i]; 
-		double H = detM - a * traceM * traceM;
-		img[i] = H;
-	}
-	return img;
 }
 
 int is_local_maxima(double* img, int cols, int i, int j) {
@@ -145,75 +133,46 @@ int is_local_maxima(double* img, int cols, int i, int j) {
 			if ((k || l) && img[(i+k)*cols + j+l] > val) {
 				return 0;
 			}
-	// printf("is_local_maxima [%d, %d]\n", i, j);
 	return 1;
 }
 
-int cmpfunc (const void * a, const void * b)
+int cmpfunc_pixel (const void * a, const void * b)
 {
-   return *(double*)b - *(double*)a;
+	return ((pixel*)b)->val - ((pixel*)a)->val;
 }
 
-double getThreshold(double* img, int cols, int rows, int n) {
-	double* maxi = (double *) malloc(cols * rows * sizeof(double));
+pixel* get_top_n_local_maxima(double* img, int cols, int rows, int n) {
+	pixel* maxi = (pixel *) malloc(cols * rows * sizeof(pixel));
 	int i, j, c=0;
 	for(i=1; i < rows-1; i++)
 		for(j=1; j < cols-1; j++) {
-			if (is_local_maxima(img, cols, i, j))
-				maxi[c++] = img[i*cols+j];
+			if (is_local_maxima(img, cols, i, j)) {
+				pixel p = {i, j, img[i*cols+j]};
+				maxi[c++] = p;
+			}
 	}
-	qsort(maxi, c, sizeof(double), cmpfunc);
-	int val = maxi[n];
+	qsort(maxi, c, sizeof(pixel), cmpfunc_pixel);
+	printf("Detected corners %d\n", c);
+	pixel* px = (pixel *) malloc(n * sizeof(pixel));
+	for (i=0; i < n; i++)
+		px[i] = maxi[i];
 	free (maxi);
-	return val;
+	return px;
 }
 
-
-int* add_red(double* hrs_img, double* flt_img, int cols, int rows, double threshold) {
+int* add_red_pixel(double* hrs_img, double* flt_img, int cols, int rows, pixel* px, int n) {
 	int size = cols * rows;
 	int* res = (int *) malloc(3 * size * sizeof(int));
 	int i;
 	for (i=0; i < size; i++) {
-		if (hrs_img[i] > threshold) {
-			res[3*i] = 255;
-			res[3*i+1] = 0;
-			res[3*i+2] = 0;
-		} else {
-			res[3*i] = res[3*i+1] = res[3*i+2] = (int)flt_img[i];
-		}
+		res[3*i] = res[3*i+1] = res[3*i+2] = (int)flt_img[i];
 	}
-	return res;
-}
-
-int* norm_harris_x(double* hrs_img, double* flt_img, int cols, int rows, int n) {
-	double d = getThreshold(hrs_img, cols, rows, n);
-	return add_red(hrs_img, flt_img, cols, rows, d);
-}
-
-int* norm_harris(double* img, int cols, int rows) {
-	int size = cols * rows;
-	int* res = (int *) malloc(size * sizeof(int));
-	int i, j;
-	for (i=0; i < size; i++) {
-		if (img[i] > 0.3)
-			res[i] = 255;
-		else if (img[i] < -0.3)
-			res[i] = 125;
-		else
-			res[i] = 0;
-		// res[i] = (int)img[i];
+	for (i=0; i < n; i++) {
+		int ind = 3 * (px[i].i * cols + px[i].j);
+		res[ind] = 255;
+		res[ind+1] = 0;
+		res[ind+2] = 0;
 	}
-	for (i=0; i < size; i++) res[i] = 0;
-	for(i=1; i < rows-1; i++)
-		for(j=1; j < cols-1; j++) {
-			// img[i*cols+j] = eign[i*cols+j] > 50 ? 255 : 0;
-			// res[i*cols+j] = is_local_maxima(img, cols, i, j) ? 255 : 0;
-			// printf("%0.2f\t", img[i]);
-	}
-	int n = 20;
-	double d = getThreshold(img, cols, rows, n);
-	for (i=0; i < size; i++) 
-		res[i] = img[i] > d ? 255 : 0;
 	return res;
 }
 
@@ -230,6 +189,23 @@ void eigenvalues(double A, double B, double C, double D, double* lambda1, double
 	double S = sqrt(pow(tr/2, 2) - det);
 	*lambda1 = tr/2 + S;
 	*lambda2 = tr/2 - S;
+}
+
+
+/*
+ * http://en.wikipedia.org/wiki/Corner_detection#The_Harris_.26_Stephens_.2F_Plessey_.2F_Shi.E2.80.93Tomasi_corner_detection_algorithm
+ */
+double* Harris(int cols, int rows, double* A, double* B, double* C, double a) {
+	int size = cols * rows;
+	double* img = (double *) malloc(size * sizeof(double));
+	int i;
+	for (i=0; i < size; i++) {
+		double detM = A[i]*B[i] - C[i]*C[i];
+		double traceM = A[i]+B[i]; 
+		double H = detM - a * traceM * traceM;
+		img[i] = H;
+	}
+	return img;
 }
 
 /*
@@ -272,27 +248,33 @@ int main()
 	double *Iy2_s = convolute_n(Iy2, dimx, dimy, B22, 3, 2);
 	double *IxIy_s = convolute_n(IxIy, dimx, dimy, B22, 3, 2);
 
+	normalize_and_print(Ix2_s, dimx, dimy, type, "boat-grad-Ix2_s.pgm");
+	normalize_and_print(Iy2_s, dimx, dimy, type, "boat-grad-Iy2_s.pgm");
+	normalize_and_print(IxIy_s, dimx, dimy, type, "boat-grad-IxIy_s.pgm");
+
 	double a;
-	for (a = 0.01; a < 0.2; a += 0.02 * 100) {
-		double* hrs_img = harris(dimx, dimy, Ix2_s, Iy2_s, IxIy_s, a);
-		char name[32];
+	char name[32];
+	for (a = 0.00; a <= 0.2; a += 0.02) {
+		double* hrs_img = Harris(dimx, dimy, Ix2_s, Iy2_s, IxIy_s, a);
+
 		sprintf(name, "boat-harris-%.2f.pgm", a);
 		// normalize_and_print(img, dimx, dimy, type, name);
 
+		pixel* px = get_top_n_local_maxima(hrs_img, dimx, dimy, nTopCorner);
+		int* norm_img = add_red_pixel(hrs_img, flt_img, dimx, dimy, px, nTopCorner);
+
 		sprintf(name, "boat-harris-norm-%.2f.pgm", a);
-		// int* norm_img = norm_harris(hrs_img, dimx, dimy);
-		int* norm_img = norm_harris_x(hrs_img, flt_img, dimx, dimy, 100);
-		// writePixmap(norm_img, dimx, dimy, type, name);
 		writePixmap(norm_img, dimx, dimy, 6, name);
 		
+		free (px);
 		free (hrs_img);
 		free (norm_img);
 	}
 
 	double* shi_tomasi = ShiTomasi(dimx, dimy, Ix2_s, Iy2_s, IxIy_s);
-	double st_threshold = getThreshold(shi_tomasi, dimx, dimy, 200);
-	int* shi_tomasi_org = add_red(shi_tomasi, flt_img, dimx, dimy, st_threshold);
-	writePixmap(shi_tomasi_org, dimx, dimy, 6, "boat-shi-tomasi.pgm");
+	pixel* px = get_top_n_local_maxima(shi_tomasi, dimx, dimy, nTopCorner);
+	int* shi_tomasi_org = add_red_pixel(shi_tomasi, flt_img, dimx, dimy, px, nTopCorner);
+	writePixmap(shi_tomasi_org, dimx, dimy, 6, "boat-shi-tomasi-100.pgm");
 
 	free (image);
 	free (flt_img);
