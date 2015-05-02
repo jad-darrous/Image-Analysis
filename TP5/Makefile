@@ -22,7 +22,6 @@ LDFLAGS   =  -g
 
 $(PROG): % : %.o utils.o pixmapIO.o kmeans.o
 	$(CC) $(LDFLAGS) -o $@ $< utils.o pixmapIO.o kmeans.o
-#	$(CC) $(LDFLAGS) -o $@ $< utils.o pixmapIO.o  -lm -ll
  
 
 clean:
